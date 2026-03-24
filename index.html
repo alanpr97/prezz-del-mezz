@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Prezz del Mezz</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --blue:       #1B5E9B;
+      --blue-light: #2E7CC4;
+      --blue-bg:    #EAF2FB;
+      --blue-mid:   #C5DCF0;
+      --red:        #D42B2B;
+      --red-light:  #F03636;
+      --white:      #FFFFFF;
+      --off-white:  #F5F8FC;
+      --text:       #0D1F33;
+      --text-mid:   #4A6075;
+      --text-light: #8AAABB;
+      --border:     #D0E3F2;
+      --shadow:     0 2px 12px rgba(27,94,155,0.10);
+      --shadow-lg:  0 8px 32px rgba(27,94,155,0.16);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      height: 100%;
+      background: var(--blue-bg);
+      font-family: 'Barlow', sans-serif;
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    /* ── PHONE SHELL (desktop only) ── */
+    .phone-shell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      background: linear-gradient(135deg, #C5DCF0 0%, #EAF2FB 50%, #D0E8FF 100%);
+    }
+
+    .phone {
+      width: 390px;
+      height: 844px;
+      background: var(--off-white);
+      border-radius: 48px;
+      box-shadow:
+        0 0 0 10px #1a1a1a,
+        0 0 0 12px #333,
+        0 40px 80px rgba(0,0,0,0.35);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      background: var(--blue);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 1.5rem 0.3rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      flex-shrink: 0;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: var(--blue);
+      padding: 0.8rem 1.2rem 1rem;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .app-header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0; right: 0;
+      height: 16px;
+      background: var(--off-white);
+      border-radius: 16px 16px 0 0;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.6rem;
+    }
+
+    .flags {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .flag {
+      width: 22px;
+      height: 15px;
+      border-radius: 2px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Ticino flag - white with bear (simplified: red/white stripes) */
+    .flag-ticino { background: white; position: relative; }
+    .flag-ticino::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, #e30a17 50%, white 50%);
+    }
+
+    /* Swiss flag */
+    .flag-swiss {
+      background: #e30a17;
+      position: relative;
+    }
+    .flag-swiss::before {
+      content: '+';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    /* Italian flag */
+    .flag-italy {
+      background: linear-gradient(to right, #009246 33.3%, white 33.3%, white 66.6%, #ce2b37 66.6%);
+    }
+
+    .app-title-block {
+      text-align: center;
+      padding-bottom: 0.5rem;
+    }
+
+    .app-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
+      color: white;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+
+    .app-subtitle {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.65);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .toast-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin: 0.4rem 0 0.2rem;
+    }
+
+    /* SVG beer & spritz icons */
+    .icon-beer, .icon-spritz {
+      width: 28px;
+      height: 28px;
+    }
+
+    /* ── NAV ── */
+    .app-nav {
+      background: var(--white);
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .nav-btn {
+      flex: 1;
+      padding: 0.7rem 0.5rem;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      position: relative;
+      transition: color 0.2s;
+    }
+
+    .nav-btn.active {
+      color: var(--blue);
+    }
+
+    .nav-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 10%; right: 10%;
+      height: 2.5px;
+      background: var(--red);
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* ── SCROLLABLE CONTENT ── */
+    .app-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab { display: none; }
+    .tab.active { display: block; }
+
+    /* ── MAP TAB (default home view) ── */
+    .map-section {
+      position: relative;
+    }
+
+    #main-map {
+      height: 260px;
+      width: 100%;
+    }
+
+    .map-overlay-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--blue);
+      box-shadow: var(--shadow);
+      z-index: 500;
+    }
+
+    /* Bar list */
+    .section-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      padding: 0.9rem 1.2rem 0.4rem;
+    }
+
+    .bar-list { padding: 0 0.8rem; }
+
+    .bar-row {
+      background: var(--white);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      box-shadow: var(--shadow);
+      animation: slideUp 0.3s ease both;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .bar-row:active { transform: scale(0.98); }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .bar-rank {
+      width: 28px;
+      height: 28px;
+      background: var(--blue-bg);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 0.9rem;
+      color: var(--blue);
+      flex-shrink: 0;
+    }
+
+    .bar-rank.gold { background: #FFF3CD; color: #C8972A; }
+    .bar-rank.silver { background: #F0F0F0; color: #888; }
+    .bar-rank.bronze { background: #FDEBD0; color: #9B6A2A; }
+
+    .bar-info { flex: 1; min-width: 0; }
+
+    .bar-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bar-prices {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 2px;
+    }
+
+    .price-chip {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-mid);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .price-chip .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dot-beer { background: var(--blue); }
+    .dot-spritz { background: var(--red); }
+
+    .bar-stars {
+      font-size: 0.7rem;
+      color: #F0B429;
+      letter-spacing: -1px;
+      flex-shrink: 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 2.5rem 1.5rem;
+      color: var(--text-light);
+    }
+
+    .empty-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .empty-state p { font-size: 0.85rem; }
+
+    /* ── ADD TAB ── */
+    .add-form { padding: 1rem 0.8rem 6rem; }
+
+    .field-group {
+      margin-bottom: 0.9rem;
+    }
+
+    .field-label {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+
+    .field-input {
+      width: 100%;
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 0.65rem 0.9rem;
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .field-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(27,94,155,0.08);
+    }
+
+    textarea.field-input { resize: vertical; min-height: 70px; }
+
+    .drink-toggle {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .drink-opt {
+      flex: 1;
+      padding: 0.65rem;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      cursor: pointer;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text-light);
+      text-transform: uppercase;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+    }
+
+    .drink-opt.active[data-type="beer"] {
+      background: var(--blue-bg);
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    .drink-opt.active[data-type="spritz"] {
+      background: #FDE8E8;
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .star-row { display: flex; gap: 4px; }
+
+    .star-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.4rem;
+      color: var(--border);
+      transition: color 0.1s, transform 0.1s;
+      padding: 2px;
+      line-height: 1;
+    }
+
+    .star-btn.lit { color: #F0B429; }
+    .star-btn:active { transform: scale(1.3); }
+
+    .pin-map-wrap {
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1.5px solid var(--border);
+      margin-bottom: 0.3rem;
+    }
+
+    #add-map { height: 160px; }
+
+    .pin-hint {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      margin-top: 0.3rem;
+    }
+
+    .status-msg {
+      padding: 0.6rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      margin-top: 0.8rem;
+      display: none;
+      font-weight: 500;
+    }
+
+    .status-msg.success {
+      display: block;
+      background: #E8F5EC;
+      color: #276E40;
+      border: 1px solid #A8D8B8;
+    }
+
+    .status-msg.error {
+      display: block;
+      background: #FDE8E8;
+      color: var(--red);
+      border: 1px solid #F5BBBB;
+    }
+
+    /* ── RANKING TAB ── */
+    .ranking-wrap { padding: 0 0.8rem 6rem; }
+
+    .rank-filters {
+      display: flex;
+      gap: 0.4rem;
+      padding: 0.8rem 0 0.5rem;
+    }
+
+    .rank-filter {
+      padding: 0.3rem 0.8rem;
+      border-radius: 2rem;
+      border: 1.5px solid var(--border);
+      background: var(--white);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-light);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .rank-filter.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+    }
+
+    /* ── FAB ── */
+    .fab-wrap {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 0.8rem;
+      background: linear-gradient(to top, var(--off-white) 70%, transparent);
+      pointer-events: none;
+    }
+
+    .fab {
+      width: 100%;
+      padding: 0.95rem;
+      background: var(--red);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(212,43,43,0.35);
+      pointer-events: all;
+      transition: transform 0.15s, box-shadow 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .fab:active { transform: scale(0.97); box-shadow: 0 2px 8px rgba(212,43,43,0.25); }
+    .fab:disabled { opacity: 0.6; }
+
+    /* ── LEAFLET CUSTOM PINS ── */
+    .custom-pin {
+      width: 28px; height: 36px;
+      display: flex; align-items: flex-start; justify-content: center;
+    }
+
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px !important;
+      box-shadow: var(--shadow-lg) !important;
+      border: 1px solid var(--border) !important;
+      font-family: 'Barlow', sans-serif !important;
+    }
+
+    .leaflet-popup-content { margin: 10px 12px !important; }
+    .popup-bar { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text); }
+    .popup-price { font-size: 0.82rem; color: var(--text-mid); margin-top: 3px; }
+    .popup-stars { font-size: 0.75rem; color: #F0B429; }
+
+    .loading-msg { text-align: center; padding: 2rem; color: var(--text-light); font-size: 0.85rem; }
+
+    @media (max-width: 440px) {
+      .phone-shell { padding: 0; background: var(--off-white); }
+      .phone {
+        width: 100%; height: 100vh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="phone-shell">
+<div class="phone">
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <span>9:41</span>
+    <span>●●●</span>
+  </div>
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="flags">
+        <div class="flag flag-ticino" title="Ticino"></div>
+        <div class="flag flag-swiss" title="Switzerland"></div>
+        <div class="flag flag-italy" title="Italy"></div>
+      </div>
+      <div style="width:60px"></div>
+    </div>
+
+    <div class="app-title-block">
+      <!-- Toast icon SVGs -->
+      <div class="toast-icon">
+        <!-- Beer mug -->
+        <svg class="icon-beer" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="14" height="16" rx="2" fill="white" fill-opacity="0.9"/>
+          <rect x="4" y="8" width="14" height="5" rx="1" fill="white"/>
+          <path d="M18 11 Q23 11 23 15 Q23 19 18 19" stroke="white" stroke-width="2" stroke-linecap="round" fill="none"/>
+          <rect x="6" y="9" width="10" height="3" rx="1" fill="#D42B2B" fill-opacity="0.7"/>
+        </svg>
+        <!-- Spritz glass -->
+        <svg class="icon-spritz" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 4 L21 4 L17 18 L11 18 Z" fill="white" fill-opacity="0.9"/>
+          <path d="M7 4 L21 4 L19 10 L9 10 Z" fill="#1B5E9B" fill-opacity="0.7"/>
+          <rect x="13" y="18" width="2" height="5" rx="1" fill="white" fill-opacity="0.9"/>
+          <rect x="10" y="23" width="8" height="1.5" rx="0.75" fill="white" fill-opacity="0.9"/>
+          <circle cx="19" cy="7" r="2" fill="#E87722" fill-opacity="0.9"/>
+        </svg>
+      </div>
+
+      <div class="app-title">Prezz del Mezz</div>
+      <div class="app-subtitle">Ticino Birra &amp; Spritz Tracker</div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="app-nav">
+    <button class="nav-btn active" onclick="showTab('home')">🗺 Mappa</button>
+    <button class="nav-btn" onclick="showTab('ranking')">🏆 Ranking</button>
+    <button class="nav-btn" onclick="showTab('add')">＋ Aggiungi</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="app-content" id="app-content">
+
+    <!-- HOME / MAP TAB -->
+    <div id="tab-home" class="tab active">
+      <div class="map-section">
+        <div id="main-map"></div>
+        <div class="map-overlay-label">Ticino</div>
+      </div>
+      <div class="section-label">Bar in zona</div>
+      <div class="bar-list" id="home-list">
+        <div class="loading-msg">Caricamento...</div>
+      </div>
+      <div style="height:5rem"></div>
+    </div>
+
+    <!-- RANKING TAB -->
+    <div id="tab-ranking" class="tab">
+      <div class="ranking-wrap">
+        <div class="rank-filters">
+          <button class="rank-filter active" onclick="setFilter('all',this)">Tutti</button>
+          <button class="rank-filter" onclick="setFilter('beer',this)">🍺 Birra</button>
+          <button class="rank-filter" onclick="setFilter('spritz',this)">🍊 Spritz</button>
+        </div>
+        <div id="rank-list"><div class="loading-msg">Caricamento...</div></div>
+      </div>
+    </div>
+
+    <!-- ADD TAB -->
+    <div id="tab-add" class="tab">
+      <div class="add-form">
+
+        <div class="field-group">
+          <label class="field-label">Nome del bar</label>
+          <input id="f-bar" class="field-input" type="text" placeholder="es. Bar Grotto, Lugano" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Tipo di bevanda</label>
+          <div class="drink-toggle">
+            <button class="drink-opt active" data-type="beer" onclick="selectDrink('beer')">🍺 Birra</button>
+            <button class="drink-opt" data-type="spritz" onclick="selectDrink('spritz')">🍊 Spritz</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Prezzo (CHF)</label>
+          <input id="f-price" class="field-input" type="number" step="0.5" min="0" placeholder="es. 4.50" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Valore per i soldi</label>
+          <div class="star-row">
+            <button class="star-btn" data-v="1" onclick="setRating(1)">★</button>
+            <button class="star-btn" data-v="2" onclick="setRating(2)">★</button>
+            <button class="star-btn" data-v="3" onclick="setRating(3)">★</button>
+            <button class="star-btn" data-v="4" onclick="setRating(4)">★</button>
+            <button class="star-btn" data-v="5" onclick="setRating(5)">★</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Posizione (tocca la mappa)</label>
+          <div class="pin-map-wrap">
+            <div id="add-map"></div>
+          </div>
+          <div class="pin-hint" id="pin-hint">Nessuna posizione selezionata</div>
+          <input id="f-lat" type="hidden" />
+          <input id="f-lng" type="hidden" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Note</label>
+          <textarea id="f-notes" class="field-input" placeholder="Qualcosa da aggiungere?"></textarea>
+        </div>
+
+        <div id="status-msg" class="status-msg"></div>
+      </div>
+    </div>
+
+  </div><!-- /app-content -->
+
+  <!-- FAB -->
+  <div class="fab-wrap" id="fab-wrap">
+    <button class="fab" id="fab-btn" onclick="onFabClick()">
+      <span id="fab-label">＋ Add prezz.</span>
+    </button>
+  </div>
+
+</div><!-- /phone -->
+</div><!-- /phone-shell -->
+
+<script>
+  const SUPABASE_URL = 'https://qwajjuyyfjepiyhhnloh.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_WbGCaPDvn3XXSj0DhVSmqg_gElnlVHJ';
+  const TABLE = 'entries';
+
+  let currentTab = 'home';
+  let selectedDrink = 'beer';
+  let selectedRating = 0;
+  let currentFilter = 'all';
+  let allEntries = [];
+  let mainMap, addMap, addMarker;
+
+  // ── SUPABASE ──
+  async function sbFetch(path, opts = {}) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': opts.prefer || 'return=representation',
+        ...opts.headers
+      },
+      ...opts
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.hint || 'Errore');
+    }
+    return res.status === 204 ? null : res.json();
+  }
+
+  async function getEntries() {
+    return sbFetch(`${TABLE}?select=*&order=created_at.desc`);
+  }
+
+  async function insertEntry(entry) {
+    return sbFetch(TABLE, { method: 'POST', body: JSON.stringify(entry) });
+  }
+
+  // ── TABS ──
+  function showTab(name) {
+    currentTab = name;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelectorAll('.nav-btn')[['home','ranking','add'].indexOf(name)].classList.add('active');
+
+    const fab = document.getElementById('fab-label');
+    const fabBtn = document.getElementById('fab-btn');
+    if (name === 'add') {
+      fab.textContent = '✓ Salva prezz.';
+      fabBtn.onclick = submitEntry;
+      setTimeout(initAddMap, 80);
+    } else {
+      fab.textContent = '＋ Add prezz.';
+      fabBtn.onclick = () => showTab('add');
+    }
+
+    if (name === 'home') loadHome();
+    if (name === 'ranking') loadRanking();
+  }
+
+  // ── HOME ──
+  async function loadHome() {
+    if (!mainMap) {
+      mainMap = L.map('main-map', { zoomControl: false }).setView([46.005, 8.952], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OSM'
+      }).addTo(mainMap);
+    } else {
+      mainMap.eachLayer(l => { if (l instanceof L.Marker) mainMap.removeLayer(l); });
+    }
+
+    const list = document.getElementById('home-list');
+    list.innerHTML = '<div class="loading-msg">Caricamento...</div>';
+
+    try {
+      allEntries = await getEntries();
+      // render map pins
+      allEntries.filter(e => e.lat && e.lng).forEach(e => {
+        const color = e.drink_type === 'beer' ? '#1B5E9B' : '#D42B2B';
+        const icon = L.divIcon({
+          html: `<svg width="22" height="30" viewBox="0 0 22 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11 0C5 0 0 5 0 11C0 18 11 30 11 30C11 30 22 18 22 11C22 5 17 0 11 0Z" fill="${color}"/>
+            <circle cx="11" cy="11" r="5" fill="white"/>
+          </svg>`,
+          className: '',
+          iconSize: [22, 30],
+          iconAnchor: [11, 30],
+          popupAnchor: [0, -30]
+        });
+        const stars = '★'.repeat(e.rating) + '☆'.repeat(5 - e.rating);
+        L.marker([e.lat, e.lng], { icon })
+          .addTo(mainMap)
+          .bindPopup(`<div class="popup-bar">${esc(e.bar_name)}</div>
+            <div class="popup-price">${e.drink_type === 'beer' ? '🍺' : '🍊'} CHF ${parseFloat(e.price).toFixed(2)}</div>
+            <div class="popup-stars">${stars}</div>`);
+      });
+
+      // render list (sorted by rating desc)
+      const sorted = [...allEntries].sort((a,b) => b.rating - a.rating || a.price - b.price);
+      if (!sorted.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-icon">🍺</div><p>Nessun bar ancora. Aggiungine uno!</p></div>';
+        return;
+      }
+
+      // group by bar, show best price per drink per bar
+      const barMap = {};
+      sorted.forEach(e => {
+        if (!barMap[e.bar_name]) barMap[e.bar_name] = { name: e.bar_name, beer: null, spritz: null, rating: e.rating };
+        if (e.drink_type === 'beer' && !barMap[e.bar_name].beer) barMap[e.bar_name].beer = e.price;
+        if (e.drink_type === 'spritz' && !barMap[e.bar_name].spritz) barMap[e.bar_name].spritz = e.price;
+        barMap[e.bar_name].rating = Math.max(barMap[e.bar_name].rating, e.rating);
+      });
+
+      const bars = Object.values(barMap);
+      list.innerHTML = bars.map((b, i) => {
+        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+        const stars = '★'.repeat(b.rating) + '☆'.repeat(5 - b.rating);
+        const beerStr = b.beer ? `<span class="price-chip"><span class="dot dot-beer"></span>Birra CHF ${parseFloat(b.beer).toFixed(2)}</span>` : '';
+        const spritzStr = b.spritz ? `<span class="price-chip"><span class="dot dot-spritz"></span>Spritz CHF ${parseFloat(b.spritz).toFixed(2)}</span>` : '';
+        return `<div class="bar-row" style="animation-delay:${i*0.05}s">
+          <div class="bar-rank ${rankClass}">${medal}</div>
+          <div class="bar-info">
+            <div class="bar-name">${esc(b.name)}</div>
+            <div class="bar-prices">${beerStr}${spritzStr}</div>
+          </div>
+          <div class="bar-stars">${stars}</div>
+        </div>`;
+      }).join('');
+
+    } catch(e) {
+      list.innerHTML = `<div class="empty-state"><p>⚠️ ${e.message}</p></div>`;
+    }
+  }
+
+  // ── RANKING ──
+  async function loadRanking() {
+    const list = document.getElementById('rank-list');
+    list.innerHTML = '<div class="loading-msg">Caricamento...</div>';
+    try {
+      allEntries = await getEntries();
+      renderRanking();
+    } catch(e) {
+      list.innerHTML = `<div class="empty-state"><p>⚠️ ${e.message}</p></div>`;
+    }
+  }
+
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll('.rank-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderRanking();
+  }
+
+  function renderRanking() {
+    const filtered = currentFilter === 'all' ? allEntries : allEntries.filter(e => e.drink_type === currentFilter);
+    const sorted = [...filtered].sort((a,b) => b.rating - a.rating || a.price - b.price);
+    const list = document.getElementById('rank-list');
+    if (!sorted.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🏆</div><p>Nessuna voce ancora.</p></div>';
+      return;
+    }
+    list.innerHTML = sorted.map((e, i) => {
+      const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1;
+      const stars = '★'.repeat(e.rating) + '☆'.repeat(5 - e.rating);
+      const chip = `<span class="price-chip"><span class="dot ${e.drink_type === 'beer' ? 'dot-beer' : 'dot-spritz'}"></span>${e.drink_type === 'beer' ? 'Birra' : 'Spritz'} CHF ${parseFloat(e.price).toFixed(2)}</span>`;
+      return `<div class="bar-row" style="animation-delay:${i*0.04}s">
+        <div class="bar-rank ${rankClass}">${medal}</div>
+        <div class="bar-info">
+          <div class="bar-name">${esc(e.bar_name)}</div>
+          <div class="bar-prices">${chip}</div>
+          ${e.notes ? `<div style="font-size:0.72rem;color:var(--text-light);font-style:italic;margin-top:2px;">"${esc(e.notes)}"</div>` : ''}
+        </div>
+        <div class="bar-stars">${stars}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── ADD MAP ──
+  function initAddMap() {
+    if (addMap) return;
+    addMap = L.map('add-map', { zoomControl: false }).setView([46.005, 8.952], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OSM'
+    }).addTo(addMap);
+    addMap.on('click', function(ev) {
+      const { lat, lng } = ev.latlng;
+      document.getElementById('f-lat').value = lat;
+      document.getElementById('f-lng').value = lng;
+      document.getElementById('pin-hint').textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (addMarker) addMap.removeLayer(addMarker);
+      addMarker = L.marker([lat, lng]).addTo(addMap);
+    });
+  }
+
+  // ── FORM ──
+  function selectDrink(type) {
+    selectedDrink = type;
+    document.querySelectorAll('.drink-opt').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.drink-opt[data-type="${type}"]`).classList.add('active');
+  }
+
+  function setRating(v) {
+    selectedRating = v;
+    document.querySelectorAll('.star-btn').forEach(s => {
+      s.classList.toggle('lit', parseInt(s.dataset.v) <= v);
+    });
+  }
+
+  function onFabClick() { showTab('add'); }
+
+  async function submitEntry() {
+    const bar   = document.getElementById('f-bar').value.trim();
+    const price = parseFloat(document.getElementById('f-price').value);
+    const notes = document.getElementById('f-notes').value.trim();
+    const lat   = document.getElementById('f-lat').value;
+    const lng   = document.getElementById('f-lng').value;
+
+    if (!bar)                         return showStatus('Inserisci il nome del bar.', 'error');
+    if (isNaN(price) || price <= 0)   return showStatus('Inserisci un prezzo valido.', 'error');
+    if (!selectedRating)              return showStatus('Dai una valutazione.', 'error');
+
+    const btn = document.getElementById('fab-btn');
+    btn.disabled = true;
+    document.getElementById('fab-label').textContent = 'Salvando...';
+
+    try {
+      await insertEntry({
+        bar_name: bar,
+        drink_type: selectedDrink,
+        price,
+        rating: selectedRating,
+        notes: notes || null,
+        lat: lat ? parseFloat(lat) : null,
+        lng: lng ? parseFloat(lng) : null
+      });
+      showStatus('Salvato! 🍻', 'success');
+      document.getElementById('f-bar').value = '';
+      document.getElementById('f-price').value = '';
+      document.getElementById('f-notes').value = '';
+      document.getElementById('f-lat').value = '';
+      document.getElementById('f-lng').value = '';
+      document.getElementById('pin-hint').textContent = 'Nessuna posizione selezionata';
+      if (addMarker) { addMap.removeLayer(addMarker); addMarker = null; }
+      setRating(0); selectedRating = 0; selectDrink('beer');
+    } catch(e) {
+      showStatus('Errore: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      document.getElementById('fab-label').textContent = '✓ Salva prezz.';
+    }
+  }
+
+  function showStatus(msg, type) {
+    const el = document.getElementById('status-msg');
+    el.textContent = msg;
+    el.className = 'status-msg ' + type;
+    setTimeout(() => el.className = 'status-msg', 4000);
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── INIT ──
+  window.addEventListener('load', loadHome);
+</script>
+</body>
+</html>
